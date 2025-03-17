@@ -24,26 +24,49 @@ namespace ScraperModeloCoche.Services
         ///<returns>Lista de enlaces</returns>
         public List<Vehiculo> ScrapingSegundaPagina(string url)
         {
+            // Si la URL de la página principal es relativa, complétala
+            if (!url.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+            {
+                url = "https://www.ultimatespecs.com" + url;
+            }
+
             List<Vehiculo> listaVehiculos = new List<Vehiculo>();
-            // Realiza una solicitud HTTP GET a la URL proporcionada y obtiene el contenido HTML como una cadena
+            // Solicita el HTML de la URL proporcionada
             var html = _httpClient.GetStringAsync(url).Result;
             var doc = new HtmlDocument();
-            // Carga el contenido HTML en el documento
             doc.LoadHtml(html);
 
-            //obtener todos los divs que contengan la clase "home_models_line gene"
+            // Selecciona todos los divs con la clase "home_models_line gene"
             var divs = doc.DocumentNode.SelectNodes("//div[contains(@class,'home_models_line gene')]");
             if (divs != null)
             {
-                foreach(var div in divs)
+                foreach (var div in divs)
                 {
-                    var aTag = div.SelectSingleNode(".//a");
+                    // Selecciona únicamente los <a> que tienen el atributo href
+                    var aTag = div.SelectSingleNode(".//a[@href]");
                     if (aTag != null)
                     {
+                        // Extrae el valor del atributo href
                         string urlVehiculo = aTag.GetAttributeValue("href", string.Empty);
-                        if(!string.IsNullOrEmpty(urlVehiculo))
+
+                        // Si la URL es relativa, conviértela a absoluta
+                        if (!urlVehiculo.StartsWith("http", StringComparison.OrdinalIgnoreCase))
                         {
-                            //se llama al método que extrae la información del vehículo
+                            if (urlVehiculo.StartsWith("//"))
+                            {
+                                urlVehiculo = "https:" + urlVehiculo;
+                            }
+                            else
+                            {
+                                urlVehiculo = "https://www.ultimatespecs.com" + urlVehiculo;
+                            }
+                        }
+
+                        Console.WriteLine("URL extraída: " + urlVehiculo);
+
+                        // Si la URL no está vacía, llama al método para extraer la información del vehículo
+                        if (!string.IsNullOrEmpty(urlVehiculo))
+                        {
                             List<Vehiculo> vehiculosDetalle = ExtraerInformacionVehiculo(urlVehiculo);
                             listaVehiculos.AddRange(vehiculosDetalle);
                         }
@@ -52,12 +75,13 @@ namespace ScraperModeloCoche.Services
             }
             return listaVehiculos;
         }
-            ///<summary>
-            ///Método que extrae la información de un vehículo de la web
-            ///</summary>
-            ///<param name="url">URL de las especificaciones del vehiculo</param>
-            ///<returns>Objeto con la información del vehículo</returns>
-            public List<Vehiculo> ExtraerInformacionVehiculo(string url)
+
+        ///<summary>
+        ///Método que extrae la información de un vehículo de la web
+        ///</summary>
+        ///<param name="url">URL de las especificaciones del vehiculo</param>
+        ///<returns>Objeto con la información del vehículo</returns>
+        public List<Vehiculo> ExtraerInformacionVehiculo(string url)
             {
 
             var html = _httpClient.GetStringAsync(url).Result;
