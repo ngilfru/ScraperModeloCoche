@@ -22,7 +22,10 @@ namespace ScraperModeloCoche
         static  void extraerInformacion()
         {
              RepositorioScraper repositorioScraper = new RepositorioScraper();
-             repositorioScraper.ScrapingSegundaPagina("https://www.ultimatespecs.com/es/car-specs/Acura-models/Acura-TLX");
+             repositorioScraper.ScrapingPrimeraPagina("https://www.ultimatespecs.com/es/car-specs");
+            Console.WriteLine(repositorioScraper.listaVehiculos.Count);
+            Console.ReadKey();
         }
+
     }
 }
