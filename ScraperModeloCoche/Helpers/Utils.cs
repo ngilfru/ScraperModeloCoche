@@ -9,6 +9,11 @@ using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using ScraperModeloCoche.Models;
+using System.Windows.Forms;
+using System.Drawing;
+using C1.Win.C1TrueDBGrid;
+using C1.Win.C1TrueDBGrid.BaseGrid;
 
 namespace ScraperModeloCoche.Helpers
 {

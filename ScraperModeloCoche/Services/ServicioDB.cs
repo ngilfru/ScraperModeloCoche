@@ -142,7 +142,7 @@ namespace ScraperModeloCoche.Services
         }       
 
        
-
+        
         public async Task<bool> BulkInsertAsync(DataTable dataTable, string targetTableName, SqlTransaction transaction, SqlBulkCopyOptions options = SqlBulkCopyOptions.Default, List<string> columnMapping = null)
         {
             if (transaction == null || transaction.Connection == null)
