@@ -117,10 +117,72 @@ namespace ScraperModeloCoche.Services
                         // Si la URL no está vacía, llama al método para extraer la información del vehículo
                         if (!string.IsNullOrEmpty(urlVehiculo))
                         {
-                            ExtraerInformacionVehiculo(urlVehiculo);
+                            ScrapingTerceraPagina(urlVehiculo);
                         }
                     }
                 }
+            }
+        }
+
+
+        ///<summary>
+        ///Método que extrae los diferentes modelos de coche
+        ///</summary>
+        ///<param name="url">URL de los modelos del vehiculo</param>
+        ///<returns>Lista de objetos</returns>
+        public void ScrapingTerceraPagina(string url)
+        {
+            // Si la URL es relativa, la completa
+            if (!url.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+            {
+                url = "https://www.ultimatespecs.com" + url;
+            }
+
+            // Obtener el HTML de la URL
+            var html = _httpClient.GetStringAsync(url).Result;
+            var doc = new HtmlDocument();
+            doc.LoadHtml(html);
+
+            // Seleccionar todos los divs con la clase "home_models_line gene"
+            var divs = doc.DocumentNode.SelectNodes("//div[contains(@class, 'home_models_line gene')]");
+            if (divs != null)
+            {
+                foreach (var div in divs)
+                {
+                    // Dentro de cada div, se seleccionan TODOS los <a> que tengan atributo href.
+                    var aTags = div.SelectNodes(".//a[@href]");
+                    if (aTags != null)
+                    {
+                        foreach (var aTag in aTags)
+                        {
+                            // Extraer el href
+                            string href = aTag.GetAttributeValue("href", string.Empty);
+                            if (!string.IsNullOrEmpty(href))
+                            {
+                                // Si es URL relativa, la convierte a absoluta.
+                                if (!href.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    if (href.StartsWith("//"))
+                                    {
+                                        href = "https:" + href;
+                                    }
+                                    else
+                                    {
+                                        href = "https://www.ultimatespecs.com" + href;
+                                    }
+                                }
+
+                                Console.WriteLine("URL extraída en Tercera Página: " + href);
+
+                                 ExtraerInformacionVehiculo(href);
+                            }
+                        }
+                    }
+                }
+            }
+            else
+            {
+                Console.WriteLine("No se encontraron divs con la clase 'home_models_line gene'.");
             }
         }
 
