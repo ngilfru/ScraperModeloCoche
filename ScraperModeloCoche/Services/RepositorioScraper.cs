@@ -75,7 +75,7 @@ namespace ScraperModeloCoche.Services
         ///<returns>Lista de enlaces</returns>
         public void ScrapingSegundaPagina(string url)
         {
-            // Si la URL de la página es relativa, se completará
+            // Si la URL de la página es relativa, se completa
             if (!url.StartsWith("http", StringComparison.OrdinalIgnoreCase))
             {
                 url = "https://www.ultimatespecs.com" + url;
@@ -86,43 +86,48 @@ namespace ScraperModeloCoche.Services
             var doc = new HtmlDocument();
             doc.LoadHtml(html);
 
-            // Selecciona todos los divs con la clase "home_models_line gene"
+            // Selecciona todos los divs que contengan la clase "home_models_line"
             var divs = doc.DocumentNode.SelectNodes("//div[contains(@class,'home_models_line')]");
             if (divs != null)
             {
                 foreach (var div in divs)
                 {
-                    // Selecciona únicamente los <a> que tienen el atributo href
-                    var aTag = div.SelectSingleNode(".//a[@href]");
-                    if (aTag != null)
+                    // Selecciona todos los <a> que tengan el atributo href dentro de cada div
+                    var aTags = div.SelectNodes(".//a[@href]");
+                    if (aTags != null)
                     {
-                        // Extrae el valor del atributo href
-                        string urlVehiculo = aTag.GetAttributeValue("href", string.Empty);
-
-                        // Si la URL es relativa, conviértela a absoluta
-                        if (!urlVehiculo.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                        foreach (HtmlNode aTag in aTags)
                         {
-                            if (urlVehiculo.StartsWith("//"))
-                            {
-                                urlVehiculo = "https:" + urlVehiculo;
-                            }
-                            else
-                            {
-                                urlVehiculo = "https://www.ultimatespecs.com" + urlVehiculo;
-                            }
-                        }
+                            // Obtén el valor del atributo href
+                            string urlVehiculo = aTag.Attributes["href"]?.Value ?? string.Empty;
 
-                        Console.WriteLine("URL extraída: " + urlVehiculo);
+                            // Si la URL es relativa, conviértela a absoluta
+                            if (!string.IsNullOrEmpty(urlVehiculo) &&
+                                !urlVehiculo.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                            {
+                                if (urlVehiculo.StartsWith("//"))
+                                {
+                                    urlVehiculo = "https:" + urlVehiculo;
+                                }
+                                else
+                                {
+                                    urlVehiculo = "https://www.ultimatespecs.com" + urlVehiculo;
+                                }
+                            }
 
-                        // Si la URL no está vacía, llama al método para extraer la información del vehículo
-                        if (!string.IsNullOrEmpty(urlVehiculo))
-                        {
-                            ScrapingTerceraPagina(urlVehiculo);
+                            Console.WriteLine("URL extraída: " + urlVehiculo);
+
+                            // Si la URL no está vacía, llama al método para la siguiente etapa
+                            if (!string.IsNullOrEmpty(urlVehiculo))
+                            {
+                                ScrapingTerceraPagina(urlVehiculo);
+                            }
                         }
                     }
                 }
             }
         }
+
 
 
         ///<summary>
