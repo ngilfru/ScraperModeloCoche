@@ -4,6 +4,7 @@ using System.Net.Http;
 using HtmlAgilityPack;
 using System.Globalization;
 using System.Collections.Generic;
+using OpenQA.Selenium;
 
 namespace ScraperModeloCoche.Services
 {
@@ -203,9 +204,13 @@ namespace ScraperModeloCoche.Services
             var html = _httpClient.GetStringAsync(url).Result;
             var doc = new HtmlDocument();
             // Carga el contenido HTML en el documento
+
+
+
+
             doc.LoadHtml(html);
             // Obtener el texto del título que contiene marca y modelo
-            var tituloNodo = doc.DocumentNode.SelectSingleNode("//div[@class='page_title_text']");
+            var tituloNodo = doc.DocumentNode.SelectSingleNode("//div[@class='page_title']");
             string tituloModelo = tituloNodo != null ? tituloNodo.InnerText.Trim() : string.Empty;
             //Quitar de la cadena el texto "Ficha técnica" que aparece al final
             tituloModelo = tituloModelo.Replace("Ficha Tecnica", "").Trim();
@@ -233,7 +238,7 @@ namespace ScraperModeloCoche.Services
             }
 
             //Seleccionar el nodo que contiene el alto en cm
-            var altoNodo = doc.DocumentNode.SelectSingleNode("//b[contains(text(),'Ancho:')]/following-sibling::span[1]");
+            var altoNodo = doc.DocumentNode.SelectSingleNode("//b[contains(text(),'Alto:')]/following-sibling::span[1]");
             string altoTexto = altoNodo != null ? altoNodo.InnerText.Trim() : string.Empty;
             altoTexto = System.Text.RegularExpressions.Regex.Match(altoTexto, @"[\d\.]+").Value;
             decimal alto = 0;
@@ -243,7 +248,7 @@ namespace ScraperModeloCoche.Services
             }
 
             //Seleccionar el nodo que contiene el peso en cm
-            var pesoNodo = doc.DocumentNode.SelectSingleNode("//b[contains(text(),'Ancho:')]/following-sibling::span[1]");
+            var pesoNodo = doc.DocumentNode.SelectSingleNode("//b[contains(text(),'Peso:')]/following-sibling::span[1]");
             string pesoTexto = pesoNodo != null ? pesoNodo.InnerText.Trim() : string.Empty;
             pesoTexto = System.Text.RegularExpressions.Regex.Match(pesoTexto, @"[\d\.]+").Value;
             decimal peso = 0;

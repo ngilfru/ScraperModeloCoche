@@ -21,9 +21,14 @@ namespace ScraperModeloCoche
         }
         static  void extraerInformacion()
         {
-             RepositorioScraper repositorioScraper = new RepositorioScraper();
+            /* RepositorioScraper repositorioScraper = new RepositorioScraper();
              repositorioScraper.ScrapingPrimeraPagina("https://www.ultimatespecs.com/es/car-specs");
-            Console.WriteLine(repositorioScraper.listaVehiculos.Count);
+             Console.WriteLine(repositorioScraper.listaVehiculos.Count);
+             Console.ReadKey();*/
+
+            //SeleniumManager selenium= new SeleniumManager();
+            ScraperSelenium scraperSelenium = new ScraperSelenium();
+            scraperSelenium.ScrapingPrimeraPaginaS("https://www.ultimatespecs.com/es/car-specs");
             Console.ReadKey();
         }
 
