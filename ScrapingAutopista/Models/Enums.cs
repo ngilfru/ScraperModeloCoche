@@ -2,7 +2,7 @@
 {
     public enum TipoMensaje
     {
-        //
+        
         ERROR, INFO, WARNING
     }
 
