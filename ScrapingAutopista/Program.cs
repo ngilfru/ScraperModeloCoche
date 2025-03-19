@@ -55,11 +55,9 @@ namespace ScrapingAutopista
             repositorioScraper.ScrapingPrimeraPagina("https://www.autopista.es/coches/");
             Console.WriteLine($"Se han obtenido {repositorioScraper.listaVehiculos.Count} vehículos.");
 
+            
             // Insertar en la BBDD
-            await InsertVehiculosAsync(repositorioScraper.listaVehiculos);
-
-            Console.WriteLine("Proceso completado. Presione cualquier tecla para salir...");
-            Console.ReadKey();
+            await InsertVehiculosAsync(repositorioScraper.listaVehiculos);            
         }
     }
 }

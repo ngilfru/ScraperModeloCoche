@@ -4,6 +4,7 @@ using System.Net.Http;
 using HtmlAgilityPack;
 using System.Globalization;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace ScrapingAutopista.Services
 {
@@ -119,9 +120,6 @@ namespace ScrapingAutopista.Services
         }
 
 
-
-
-
         ///<summary>
         ///Método que extrae los diferentes modelos de coche
         ///</summary>
@@ -131,17 +129,14 @@ namespace ScrapingAutopista.Services
         {
             // Completa la URL si es relativa.
             if (!url.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-            {
                 url = "https://www.autopista.es" + url;
-            }
 
             // Descarga y carga el HTML.
             var html = _httpClient.GetStringAsync(url).Result;
             var doc = new HtmlDocument();
             doc.LoadHtml(html);
 
-            // Selecciona todos los enlaces (<a>) que se encuentran en el primer <td> de cada fila del <tbody>
-            // dentro del bloque cuyo contenedor tiene las clases "modulo tabla-modelos bloque"
+            // Selecciona los enlaces de cada versión (del primer <td> de cada fila del <tbody>)
             var aTags = doc.DocumentNode.SelectNodes(
                 "//div[contains(@class, 'modulo') and contains(@class, 'tabla-modelos') and contains(@class, 'bloque')]//div[@class='inner']//table[contains(@class, 'tablesorter')]//tbody/tr/td[1]/a[@href]");
 
@@ -151,28 +146,57 @@ namespace ScrapingAutopista.Services
                 return;
             }
 
-            // Recorre cada enlace extraído.
+            // Lista para almacenar los datos de todas las versiones para este modelo.
+            List<Vehiculo> versiones = new List<Vehiculo>();
             foreach (var aTag in aTags)
             {
                 string href = aTag.GetAttributeValue("href", string.Empty);
-                if (!string.IsNullOrEmpty(href))
+                if (string.IsNullOrEmpty(href))
+                    continue;
+
+                // Convierte la URL relativa a absoluta.
+                if (!href.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                    href = href.StartsWith("//") ? "https:" + href : "https://www.autopista.es" + href;
+
+                Console.WriteLine("URL extraída: " + href);
+
+                // Extrae la información de cada versión y agrega todos los objetos devueltos.
+                List<Vehiculo> vList = ExtraerInformacionVehiculo(href);
+                versiones.AddRange(vList);
+            }
+
+            string modeloTitulo = "";
+            var modeloNode = doc.DocumentNode.SelectSingleNode("//div[contains(@class, 'modulo') and contains(@class, 'texto-marca')]");
+            if (modeloNode != null)
+            {
+                var h1Model = modeloNode.SelectSingleNode(".//h1");
+                if (h1Model != null)
+                    modeloTitulo = h1Model.InnerText.Trim();
+            }
+
+            // Agrupar las versiones por tipo de motor y tomar el máximo de cada dimensión.
+            var agrupado = versiones.GroupBy(v => v.TipoMotor);
+            foreach (var grupo in agrupado)
+            {
+                decimal maxLargo = grupo.Max(v => decimal.Parse(v.Largo, CultureInfo.InvariantCulture));
+                decimal maxAncho = grupo.Max(v => decimal.Parse(v.Ancho, CultureInfo.InvariantCulture));
+                decimal maxAlto = grupo.Max(v => decimal.Parse(v.Alto, CultureInfo.InvariantCulture));
+                decimal maxPeso = grupo.Max(v => decimal.Parse(v.Peso, CultureInfo.InvariantCulture));
+
+                Vehiculo vehiculoFinal = new Vehiculo
                 {
-                    // Convierte la URL relativa a absoluta si es necesario.
-                    if (!href.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-                    {
-                        href = href.StartsWith("//") ? "https:" + href : "https://www.autopista.es" + href;
-                    }
+                    MarcaModelo = modeloTitulo,
+                    Largo = maxLargo.ToString(CultureInfo.InvariantCulture),
+                    Ancho = maxAncho.ToString(CultureInfo.InvariantCulture),
+                    Alto = maxAlto.ToString(CultureInfo.InvariantCulture),
+                    Peso = maxPeso.ToString(CultureInfo.InvariantCulture),
+                    TipoMotor = grupo.Key
+                };
 
-                    Console.WriteLine("URL extraída: " + href);
-
-                    ExtraerInformacionVehiculo(href);
-                }
+                listaVehiculos.Add(vehiculoFinal);
+                Console.WriteLine($"Vehículo agregado: {modeloTitulo} - {grupo.Key}");
             }
         }
-
-
-
-
 
 
         ///<summary>
@@ -180,9 +204,11 @@ namespace ScrapingAutopista.Services
         ///</summary>
         ///<param name="url">URL de las especificaciones del vehiculo</param>
         ///<returns>Objeto con la información del vehículo</returns>
-        public void ExtraerInformacionVehiculo(string url)
+        public List<Vehiculo> ExtraerInformacionVehiculo(string url)
         {
-            // Si la URL es relativa, la completa.
+            List<Vehiculo> resultado = new List<Vehiculo>();
+
+            // Si la URL es relativa, se completa.
             if (!url.StartsWith("http", StringComparison.OrdinalIgnoreCase))
             {
                 url = "https://www.autopista.es" + url;
@@ -207,7 +233,8 @@ namespace ScrapingAutopista.Services
 
             // 2. Variables para almacenar dimensiones y combustible.
             decimal largo = 0, ancho = 0, alto = 0, peso = 0;
-            string combustibleTexto = "";
+            // Utilizamos un HashSet para recolectar los combustibles únicos.
+            HashSet<string> combustiblesSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             // Recorrer todos los contenedores de datos oficiales (pueden tener diferentes ids).
             var dataOfficialNodes = doc.DocumentNode.SelectNodes("//div[contains(@class,'data-official')]");
@@ -248,9 +275,16 @@ namespace ScrapingAutopista.Services
                         }
                         else if (label.Equals("Combustible", StringComparison.OrdinalIgnoreCase))
                         {
-                            // Solo se asigna si aún no se ha asignado un valor.
-                            if (string.IsNullOrEmpty(combustibleTexto))
-                                combustibleTexto = value;
+                            // Si hay múltiples combustibles, los separamos por comas o punto y coma.
+                            var partes = value.Split(new char[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries);
+                            foreach (var parte in partes)
+                            {
+                                string trimmed = parte.Trim();
+                                if (!string.IsNullOrEmpty(trimmed))
+                                {
+                                    combustiblesSet.Add(trimmed);
+                                }
+                            }
                         }
                     }
                 }
@@ -261,41 +295,36 @@ namespace ScrapingAutopista.Services
             Console.WriteLine("Ancho: " + ancho);
             Console.WriteLine("Alto: " + alto);
             Console.WriteLine("Peso: " + peso);
-            Console.WriteLine("Combustible: " + combustibleTexto);
+            Console.WriteLine("Combustibles encontrados: " + string.Join(", ", combustiblesSet));
 
-            // 3. Procesar el combustible: solo se toma el primer valor válido.
-            char tipoMotor = ' ';
-            if (!string.IsNullOrEmpty(combustibleTexto))
+            // 3. Por cada tipo de combustible único, determinar el carácter y crear un objeto Vehiculo.
+            foreach (var combustible in combustiblesSet)
             {
-                // Dividir el valor si hay múltiples (por comas o punto y coma).
-                string[] combustiblesArray = combustibleTexto.Split(new char[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries);
-                if (combustiblesArray.Length > 0)
+                char tipoMotor = ' ';
+                if (combustible.IndexOf("Eléctrico", StringComparison.OrdinalIgnoreCase) >= 0)
+                    tipoMotor = 'E';
+                else if (combustible.IndexOf("Híbrido", StringComparison.OrdinalIgnoreCase) >= 0)
+                    tipoMotor = 'H';
+                else if (combustible.IndexOf("Gasolina", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                         combustible.IndexOf("Gasóleo", StringComparison.OrdinalIgnoreCase) >= 0)
+                    tipoMotor = 'G';
+
+                // Creamos el objeto Vehiculo para cada combustible.
+                Vehiculo vehiculo = new Vehiculo
                 {
-                    string comp = combustiblesArray[0].Trim();
-                    if (comp.IndexOf("Eléctrico", StringComparison.OrdinalIgnoreCase) >= 0)
-                        tipoMotor = 'E';
-                    else if (comp.IndexOf("Híbrido", StringComparison.OrdinalIgnoreCase) >= 0)
-                        tipoMotor = 'H';
-                    else if (comp.IndexOf("Gasolina", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                             comp.IndexOf("Gasóleo", StringComparison.OrdinalIgnoreCase) >= 0)
-                        tipoMotor = 'G';
-                }
+                    MarcaModelo = tituloModelo,
+                    Largo = largo.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    Ancho = ancho.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    Alto = alto.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    Peso = peso.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    TipoMotor = tipoMotor
+                };
+
+                resultado.Add(vehiculo);
+                Console.WriteLine("Vehículo agregado: " + tituloModelo + " - " + tipoMotor);
             }
-            Console.WriteLine("Tipo de motor: " + tipoMotor);
 
-            // 4. Crear el objeto Vehiculo y agregarlo a la lista.
-            Vehiculo vehiculo = new Vehiculo
-            {
-                MarcaModelo = tituloModelo,
-                Largo = largo.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                Ancho = ancho.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                Alto = alto.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                Peso = peso.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                TipoMotor = tipoMotor
-            };
-
-            listaVehiculos.Add(vehiculo);
-            Console.WriteLine("Vehículo agregado: " + tituloModelo + " - " + tipoMotor);
+            return resultado;
         }
 
     }
